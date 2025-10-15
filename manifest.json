@@ -1,0 +1,24 @@
+{
+  "name": "PHO BAR Fidélité",
+  "short_name": "PHO BAR",
+  "description": "Gagnez 10€ tous les 10 tampons + offrez une boisson à un ami !",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#e74c3c",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

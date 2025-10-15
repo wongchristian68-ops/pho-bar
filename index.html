@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PHO BAR Fidélité</title>
+    <meta
+      name="description"
+      content="Programme de fidélité et parrainage pour le restaurant PHO BAR"
+    />
+    <meta name="theme-color" content="#e74c3c" />
+    <link rel="manifest" href="manifest.json" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #fff;
+        color: #333;
+        line-height: 1.6;
+      }
+      h1 {
+        color: #e74c3c;
+        text-align: center;
+        margin-bottom: 25px;
+      }
+      .btn {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 14px;
+        border-radius: 8px;
+        width: 100%;
+        margin: 12px 0;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      .btn-secondary {
+        background: #3498db;
+      }
+      .btn-outline {
+        background: #95a5a6;
+      }
+      .card {
+        background: #f9f9f9;
+        padding: 18px;
+        border-radius: 12px;
+        margin: 18px 0;
+        border-left: 4px solid #e74c3c;
+      }
+      input {
+        width: 100%;
+        padding: 12px;
+        margin: 10px 0;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 16px;
+      }
+      .reward {
+        background: #d4edda;
+        color: #155724;
+        padding: 10px;
+        border-radius: 6px;
+        text-align: center;
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🥢 PHO BAR Fidélité</h1>
+    <div id="app">
+      <!-- L'application se chargera ici -->
+    </div>
+
+    <!-- 🔥 Firebase SDK (gratuit, CDN public) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <script>
+      // ⚠️ ⚠️ ⚠️
+      // ➤ REMPLACE CE BLOC PAR TON PROPRE FIREBASE CONFIG (de la console Firebase)
+      // ⚠️ ⚠️ ⚠️
+      const firebaseConfig = {
+        apiKey: "AIzaSyAyKcCW8mVkojGusemDUadv9Eo7u4l2ElI",
+        authDomain: "pho-bar-pwa.firebaseapp.com",
+        projectId: "pho-bar-pwa",
+        storageBucket: "pho-bar-pwa.firebasestorage.app",
+        messagingSenderId: "669013803805",
+        appId: "1:669013803805:web:45bf282b428324428117f4",
+      };
+
+      // Initialisation Firebase
+      firebase.initializeApp(firebaseConfig);
+      const auth = firebase.auth();
+      const db = firebase.firestore();
+
+      // Récupère le code de parrainage dans l'URL (ex: ?ref=PHO123)
+      const urlParams = new URLSearchParams(window.location.search);
+      const refCode = urlParams.get("ref");
+
+      let currentUser = null;
+
+      // Écoute l'état de connexion
+      auth.onAuthStateChanged(async (user) => {
+        currentUser = user;
+        if (user) {
+          renderMainScreen();
+        } else {
+          renderAuthScreen();
+        }
+      });
+
+      // === ÉCRAN D'AUTHENTIFICATION ===
+      function renderAuthScreen() {
+        const appDiv = document.getElementById("app");
+        appDiv.innerHTML = `
+        <div class="card">
+          <h2>Connexion / Inscription</h2>
+          <input type="email" id="email" placeholder="Ton email" autocomplete="email" />
+          <input type="password" id="password" placeholder="Mot de passe (6+ caractères)" autocomplete="new-password" />
+          <button class="btn" onclick="handleSignup()">👉 Créer mon compte</button>
+          <button class="btn btn-outline" onclick="handleLogin()">🔑 Me connecter</button>
+          ${
+            refCode
+              ? `<p style="text-align:center;color:#27ae60;font-weight:bold;">Parrainé par : ${refCode}</p>`
+              : ""
+          }
+        </div>
+        <p style="text-align:center;color:#777;font-size:14px;">
+          Tes données sont sécurisées. Aucune publicité.
+        </p>
+      `;
+      }
+
+      // === ÉCRAN PRINCIPAL (après connexion) ===
+      async function renderMainScreen() {
+        const uid = currentUser.uid;
+        const userDoc = await db.collection("users").doc(uid).get();
+
+        let userData;
+        if (!userDoc.exists) {
+          // Nouvel utilisateur → crée son profil
+          const code = "PHO" + uid.substring(0, 5).toUpperCase();
+          userData = {
+            email: currentUser.email,
+            stamps: 0,
+            referralCode: code,
+            referredBy: refCode || null,
+            hasConsumed: false,
+            reward10euros: false,
+            rewardParrainage: false,
+          };
+          await db.collection("users").doc(uid).set(userData);
+        } else {
+          userData = userDoc.data();
+        }
+
+        const shareLink = `${window.location.origin}?ref=${userData.referralCode}`;
+        const appDiv = document.getElementById("app");
+
+        let rewardsHtml = "";
+        if (userData.stamps >= 10 || userData.reward10euros) {
+          rewardsHtml +=
+            '<div class="reward">🎁 Félicitations ! Tu as gagné 10€ de réduction !</div>';
+        }
+        if (userData.rewardParrainage) {
+          rewardsHtml +=
+            '<div class="reward">🥤 Boisson offerte (parrainage activé) !</div>';
+        }
+
+        appDiv.innerHTML = `
+        <div class="card">
+          <h2>Mon Compte</h2>
+          <p><strong>${currentUser.email}</strong></p>
+          <p>🔢 Tampons : <strong>${userData.stamps}/10</strong></p>
+          ${rewardsHtml}
+          ${
+            userData.referredBy
+              ? `<p>🧑‍🤝‍🧑 Parrainé par : <code>${userData.referredBy}</code></p>`
+              : ""
+          }
+        </div>
+
+        <button class="btn" onclick="addStamp()">✅ Valider une visite (tampon)</button>
+
+        <div class="card">
+          <h2>Inviter un ami</h2>
+          <p>Partage ce lien à un ami :</p>
+          <input type="text" id="shareLink" value="${shareLink}" readonly />
+          <button class="btn btn-secondary" onclick="copyShareLink()">📋 Copier le lien</button>
+          <p style="text-align:center;margin-top:10px;font-size:14px;">
+            → Vous gagnerez <strong>1 boisson ou dessert offert</strong> chacun dès sa première visite !
+          </p>
+        </div>
+
+        <button class="btn btn-outline" onclick="logout()">Déconnexion</button>
+      `;
+      }
+
+      // === FONCTIONS ===
+      async function handleSignup() {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        if (!email || !password || password.length < 6) {
+          alert("Email et mot de passe (6+ caractères) requis.");
+          return;
+        }
+        try {
+          await auth.createUserWithEmailAndPassword(email, password);
+        } catch (error) {
+          alert("Erreur : " + error.message);
+        }
+      }
+
+      async function handleLogin() {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        try {
+          await auth.signInWithEmailAndPassword(email, password);
+        } catch (error) {
+          alert("Erreur : " + error.message);
+        }
+      }
+
+      async function addStamp() {
+        if (!currentUser) return;
+        const uid = currentUser.uid;
+        const userRef = db.collection("users").doc(uid);
+        const doc = await userRef.get();
+        const data = doc.data();
+        const newStamps = data.stamps + 1;
+
+        const updateData = {
+          stamps: newStamps >= 10 ? 0 : newStamps,
+          reward10euros: newStamps >= 10 ? true : data.reward10euros,
+        };
+
+        // Si c'est la première consommation → active le parrainage
+        if (!data.hasConsumed) {
+          updateData.hasConsumed = true;
+          if (data.referredBy) {
+            // Trouve le parrain et offre-lui une récompense
+            const referrerQuery = await db
+              .collection("users")
+              .where("referralCode", "==", data.referredBy)
+              .limit(1)
+              .get();
+            if (!referrerQuery.empty) {
+              const referrerDoc = referrerQuery.docs[0];
+              await db.collection("users").doc(referrerDoc.id).update({
+                rewardParrainage: true,
+              });
+              alert(
+                "🎉 Parrainage réussi ! Le parrain reçoit une boisson offerte."
+              );
+            }
+          }
+        }
+
+        await userRef.update(updateData);
+        renderMainScreen();
+      }
+
+      function copyShareLink() {
+        const input = document.getElementById("shareLink");
+        input.select();
+        input.setSelectionRange(0, 99999); // Pour mobile
+        document.execCommand("copy");
+        alert("✅ Lien copié ! Envoie-le à un ami 🥢");
+      }
+
+      function logout() {
+        auth.signOut();
+      }
+    </script>
+  </body>
+</html>
